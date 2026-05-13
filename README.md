@@ -28,7 +28,6 @@ MVP autónomo para generar predicciones de fútbol usando datos públicos de [fo
 > Importante: el sistema entrega probabilidades, no garantías. El fútbol conserva incertidumbre por lesiones, expulsiones, clima, alineaciones y decisiones arbitrales.
 
 ## Fuente de datos deportivos
-## Fuente de datos
 
 Los históricos se descargan con el patrón:
 
@@ -160,14 +159,15 @@ streamlit run app.py
 
 1. Selecciona ligas y temporadas en la barra lateral.
 2. Opcionalmente activa **Agregar clima Open-Meteo**.
-3. Presiona **Actualizar datos**.
-4. En la pestaña **Predicciones**, elige:
+3. Opcionalmente activa **Usar API-Football** y pega tu API key en el campo seguro de la barra lateral. También puedes definir la variable de entorno `API_FOOTBALL_KEY`.
+4. Presiona **Actualizar datos**.
+5. En la pestaña **Predicciones**, elige:
    - **Próximos partidos automáticos**, o
    - **Partido manual**.
-5. Presiona **Generar predicciones** o **Predecir partido manual**.
-6. Revisa probabilidades, pick recomendado, confianza y clima.
-7. Exporta CSV si hace falta.
-8. En la pestaña **Rendimiento histórico**, ejecuta backtesting para medir fiabilidad.
+6. Presiona **Generar predicciones** o **Predecir partido manual**.
+7. Revisa probabilidades, pick recomendado, confianza, clima y contexto API-Football si está activo.
+8. Exporta CSV si hace falta.
+9. En la pestaña **Rendimiento histórico**, ejecuta backtesting para medir fiabilidad.
 
 ## Crear un acceso rápido sin empaquetar .exe
 
@@ -227,26 +227,34 @@ python scripts/verify_project.py
 ```
 
 Este comando revisa compilación básica de Python y genera un ZIP de verificación sin necesitar pandas, streamlit ni internet.
-## Instalación
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
 
-## Uso con interfaz gráfica
+## Uso opcional de API-Football
 
-```bash
+La API key **no se guarda en el código ni en Git**. Puedes usarla de dos formas:
+
+1. En la interfaz, activa **Usar API-Football** y pega la key en el campo tipo contraseña.
+2. O define una variable de entorno antes de abrir la app:
+
+```cmd
+set API_FOOTBALL_KEY=TU_API_KEY
 streamlit run app.py
 ```
 
-Flujo recomendado para el cliente:
+En Mac/Linux:
 
-1. Seleccionar ligas y temporadas en la barra lateral.
-2. Presionar **Actualizar datos**.
-3. Presionar **Generar predicciones** para próximos partidos, o usar **Partido manual**.
-4. Revisar la tabla y exportar CSV si hace falta.
+```bash
+export API_FOOTBALL_KEY=TU_API_KEY
+streamlit run app.py
+```
+
+Con API-Football activo, el sistema intenta buscar el fixture por fecha/equipos y agregar:
+
+- lesionados del local/visitante,
+- suspendidos del local/visitante,
+- lineups/formaciones si están disponibles,
+- xG del fixture si el endpoint de estadísticas lo devuelve para esa liga/partido,
+- una nota contextual y ajuste de confianza/acción.
 
 ## Uso desde Python
 
@@ -279,6 +287,8 @@ Streamlit / CSV exportable / backtesting
 ## Mejoras implementadas para fiabilidad
 
 - Backtesting walk-forward: predice partidos históricos entrenando solo con datos anteriores.
+- Calibración por buckets basada en backtesting para ajustar la probabilidad del pick recomendado.
+- Diagnóstico por mercado recomendado para saber qué mercados son más fiables.
 - Métricas por liga: 1X2, Over 2.5, BTTS y Brier score.
 - Doble oportunidad y Under explícitos.
 - Pick recomendado por mayor probabilidad.
@@ -289,7 +299,21 @@ Streamlit / CSV exportable / backtesting
 - Sistema de acción: **Recomendado**, **Informativo** o **Evitar** para no forzar picks débiles.
 - Comparación contra cuotas Bet365 cuando existen, calculando probabilidad implícita y ventaja vs mercado.
 - Penalización de confianza por clima adverso cuando Open-Meteo está activo.
+- Enriquecimiento opcional con API-Football para lesiones/suspensiones, alineaciones/formaciones y xG si el endpoint lo devuelve.
 - Explicación automática del pick combinando probabilidad, Elo, forma reciente y motivo de acción.
+
+
+## APIs externas investigadas para lesiones, alineaciones y xG
+
+Para mejorar el modelo con datos que `football-data.co.uk` no trae completo, se revisaron estas opciones:
+
+- **Sportmonks**: mejor candidato premium para lesiones/suspendidos, alineaciones, expected lineups y xG.
+- **API-Football / API-Sports**: integración opcional disponible en la app para injuries, lineups, fixture/player stats y xG cuando el endpoint lo entregue.
+- **TheStatsAPI**: opción de pago/trial con xG, match stats, player stats y datos históricos.
+- **foot.io**: opción interesante para prototipo o investigación con lineups y shot-level xG; public reads con rate limit.
+- **football-data.org**: API JSON útil como complemento, pero no es la fuente ideal para xG profundo o lesiones.
+
+Más detalle técnico y endpoints revisados: [`docs/external_apis.md`](docs/external_apis.md).
 
 ## Limitaciones actuales
 

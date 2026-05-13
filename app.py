@@ -6,6 +6,7 @@ import streamlit as st
 
 from football_predictor.config import DEFAULT_SEASONS, LEAGUES
 from football_predictor.database import load_matches
+from football_predictor.pipeline import backtest_diagnostics, predict_manual_match, predict_upcoming_matches, update_historical_data
 from football_predictor.pipeline import backtest_model, predict_manual_match, predict_upcoming_matches, update_historical_data
 
 
@@ -39,6 +40,8 @@ PERCENT_COLUMNS = [
     "market_over25_prob",
     "market_under25_prob",
     "value_gap",
+    "calibrated_pick_probability",
+    "calibration_hit_rate",
 ]
 
 
@@ -116,6 +119,22 @@ def render_predictions(predictions: pd.DataFrame) -> None:
             "market_over25_prob": "Mercado Over2.5",
             "market_under25_prob": "Mercado Under2.5",
             "value_gap": "Ventaja vs mercado",
+            "calibrated_pick_probability": "Prob. calibrada",
+            "calibration_bucket": "Bucket calibración",
+            "calibration_samples": "Muestras calibración",
+            "calibration_hit_rate": "Acierto bucket",
+            "api_football_fixture_id": "Fixture API-Football",
+            "api_football_status": "Estado API-Football",
+            "api_home_injuries": "Lesiones local",
+            "api_away_injuries": "Lesiones visita",
+            "api_home_suspensions": "Susp. local",
+            "api_away_suspensions": "Susp. visita",
+            "api_lineups_available": "Lineups API",
+            "api_home_formation": "Formación local",
+            "api_away_formation": "Formación visita",
+            "api_home_xg": "xG local API",
+            "api_away_xg": "xG visita API",
+            "api_context_note": "Nota API-Football",
             "weather_city": "Ciudad clima",
             "weather_temperature_c": "Temp. °C",
             "weather_precipitation_probability": "Prob. lluvia %",
@@ -162,6 +181,9 @@ with st.sidebar:
     )
     selected_seasons = st.multiselect("Temporadas históricas", options=DEFAULT_SEASONS, default=DEFAULT_SEASONS[-3:])
     include_weather = st.checkbox("Agregar clima Open-Meteo", value=False)
+    calibrate_probabilities = st.checkbox("Calibrar con backtesting", value=False)
+    use_api_football = st.checkbox("Usar API-Football", value=False)
+    api_football_key = st.text_input("API-Football key", type="password") if use_api_football else None
     st.info("Football-Data publica archivos CSV. La app los descarga, limpia y guarda localmente para entrenar el modelo.")
 
 st.subheader("1. Actualizar base histórica")
@@ -201,6 +223,8 @@ with predictions_tab:
                         league_codes=selected_leagues,
                         limit=limit,
                         include_weather=include_weather,
+                        calibrate=calibrate_probabilities,
+                        api_football_key=api_football_key,
                     )
                     render_predictions(predictions)
                 except Exception as exc:
@@ -233,6 +257,8 @@ with predictions_tab:
                         away_team,
                         league_code=league_code,
                         include_weather=include_weather,
+                        calibrate=calibrate_probabilities,
+                        api_football_key=api_football_key,
                     )
                     render_predictions(predictions)
                 except Exception as exc:
@@ -253,7 +279,22 @@ with performance_tab:
     if st.button("Ejecutar backtesting"):
         with st.spinner("Ejecutando backtesting histórico..."):
             try:
-                details, summary = backtest_model(league_code=backtest_league, max_test_matches=max_matches)
+                details, summary, calibration_table, market_summary = backtest_diagnostics(
+                    league_code=backtest_league,
+                    max_test_matches=max_matches,
+                )
                 render_backtest(summary, details)
+                if not market_summary.empty:
+                    st.subheader("Rendimiento por mercado")
+                    market_display = market_summary.copy()
+                    for column in ["Acierto", "Confianza", "Probabilidad"]:
+                        market_display[column] = (market_display[column] * 100).round(1).astype(str) + "%"
+                    st.dataframe(market_display, use_container_width=True, hide_index=True)
+                if not calibration_table.empty:
+                    st.subheader("Calibración por buckets")
+                    calibration_display = calibration_table.copy()
+                    for column in ["avg_probability", "hit_rate"]:
+                        calibration_display[column] = (calibration_display[column] * 100).round(1).astype(str) + "%"
+                    st.dataframe(calibration_display, use_container_width=True, hide_index=True)
             except Exception as exc:
                 st.error(f"No se pudo ejecutar backtesting: {exc}")

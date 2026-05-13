@@ -2,18 +2,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 
 import pandas as pd
 
 from .cleaner import clean_fixtures, clean_matches
 from .backtesting import BacktestConfig, run_backtest
+from .calibration import apply_calibration, build_calibration_table, summarise_markets
 from .config import DEFAULT_SEASONS, LEAGUES, DATABASE_PATH, DownloadTarget
 from .database import load_matches, save_matches, save_predictions
 from .downloader import download_fixtures, download_many
 from .features import confidence_from_score, enrich_with_reliability_signals
 from .odds import add_market_probabilities
 from .poisson_model import PoissonFootballModel
+from .providers.api_football import APIFootballClient
 from .weather import get_match_weather
 
 
@@ -50,12 +53,36 @@ def train_model_from_database(db_path: Path = DATABASE_PATH, league_code: str | 
     return PoissonFootballModel().fit(matches)
 
 
+def neutral_model() -> PoissonFootballModel:
+    """Crea un modelo base para que la app pueda predecir antes de descargar historicos."""
+
+    model = PoissonFootballModel()
+    model.is_fitted = True
+    return model
+
+
+def train_model_or_neutral(db_path: Path = DATABASE_PATH, league_code: str | None = None) -> PoissonFootballModel:
+    """Entrena con SQLite y usa medias neutrales si todavía no hay datos locales."""
+
+    try:
+        return train_model_from_database(db_path=db_path, league_code=league_code)
+    except ValueError:
+        if league_code is not None:
+            try:
+                return train_model_from_database(db_path=db_path, league_code=None)
+            except ValueError:
+                pass
+        return neutral_model()
+
+
 def predict_upcoming_matches(
     db_path: Path = DATABASE_PATH,
     league_codes: list[str] | None = None,
     limit: int = 50,
     save: bool = True,
     include_weather: bool = False,
+    calibrate: bool = False,
+    api_football_key: str | None = None,
 ) -> pd.DataFrame:
     """Descarga fixtures actuales y genera probabilidades para partidos futuros."""
 
@@ -68,10 +95,7 @@ def predict_upcoming_matches(
 
     predictions: list[pd.DataFrame] = []
     for league_code, league_fixtures in fixtures.groupby("LeagueCode", dropna=False):
-        try:
-            model = train_model_from_database(db_path=db_path, league_code=league_code)
-        except ValueError:
-            model = train_model_from_database(db_path=db_path, league_code=None)
+        model = train_model_or_neutral(db_path=db_path, league_code=league_code)
         predicted = model.predict_dataframe(league_fixtures)
         predictions.append(_attach_fixture_odds(predicted, league_fixtures))
 
@@ -79,7 +103,11 @@ def predict_upcoming_matches(
     result = enrich_predictions_with_reliability(result, db_path=db_path)
     if include_weather and not result.empty:
         result = enrich_predictions_with_weather(result)
+    if api_football_key and not result.empty:
+        result = enrich_predictions_with_api_football(result, api_key=api_football_key)
     result = add_market_probabilities(result)
+    if calibrate and not result.empty:
+        result = calibrate_predictions(result, db_path=db_path)
     result = rank_predictions(result)
     if save and not result.empty:
         save_predictions(result, db_path=db_path)
@@ -92,12 +120,18 @@ def predict_manual_match(
     league_code: str | None = None,
     db_path: Path = DATABASE_PATH,
     include_weather: bool = False,
+    calibrate: bool = False,
+    api_football_key: str | None = None,
 ) -> pd.DataFrame:
-    model = train_model_from_database(db_path=db_path, league_code=league_code)
+    model = train_model_or_neutral(db_path=db_path, league_code=league_code)
     result = pd.DataFrame([model.predict_match(home_team, away_team, league_code=league_code).as_dict()])
     result = enrich_predictions_with_reliability(result, db_path=db_path, league_code=league_code)
     if include_weather:
         result = enrich_predictions_with_weather(result)
+    if api_football_key:
+        result = enrich_predictions_with_api_football(result, api_key=api_football_key)
+    if calibrate:
+        result = calibrate_predictions(result, db_path=db_path, league_code=league_code)
     return rank_predictions(result)
 
 
@@ -111,6 +145,7 @@ def rank_predictions(predictions: pd.DataFrame) -> pd.DataFrame:
     ranked["pick_probability"] = ranked["recommended_probability"]
     if "action" not in ranked.columns:
         ranked["action"] = ranked.apply(_fallback_action, axis=1)
+    ranked = _apply_calibration_to_action(ranked)
     ranked = _apply_value_gap_to_action(ranked)
     if "confidence_score" in ranked.columns:
         ranked["action_rank"] = ranked["action"].map({"Recomendado": 0, "Informativo": 1, "Evitar": 2}).fillna(3)
@@ -158,6 +193,89 @@ def enrich_predictions_with_weather(predictions: pd.DataFrame) -> pd.DataFrame:
     if "action" in enriched.columns:
         enriched.loc[enriched["weather_risk"] == "Alto", "action"] = "Informativo"
     return enriched
+
+
+def enrich_predictions_with_api_football(predictions: pd.DataFrame, api_key: str | None = None) -> pd.DataFrame:
+    """Agrega lesiones/alineaciones/xG desde API-Football y ajusta confianza."""
+
+    if predictions.empty:
+        return predictions
+    key = api_key or os.getenv("API_FOOTBALL_KEY")
+    if not key:
+        return predictions
+    client = APIFootballClient(key)
+    enriched = predictions.copy()
+    context_rows = []
+    for _, row in enriched.iterrows():
+        try:
+            context = client.match_context(
+                home_team=row["home_team"],
+                away_team=row["away_team"],
+                match_date=row.get("match_date"),
+            )
+        except Exception as exc:
+            context = None
+            context_rows.append({"api_context_note": f"API-Football no disponible: {exc}"})
+            continue
+        if context is None:
+            context_rows.append({"api_context_note": "API-Football sin fixture compatible para este partido."})
+        else:
+            context_rows.append(_api_context_to_prediction_row(context.as_dict()))
+
+    context_df = pd.DataFrame(context_rows)
+    enriched = pd.concat([enriched.reset_index(drop=True), context_df.reset_index(drop=True)], axis=1)
+    return _apply_api_football_adjustments(enriched)
+
+
+def _api_context_to_prediction_row(context: dict[str, object]) -> dict[str, object]:
+    return {
+        "api_football_fixture_id": context.get("fixture_id"),
+        "api_football_status": context.get("fixture_status"),
+        "api_home_injuries": context.get("home_injuries"),
+        "api_away_injuries": context.get("away_injuries"),
+        "api_home_suspensions": context.get("home_suspensions"),
+        "api_away_suspensions": context.get("away_suspensions"),
+        "api_lineups_available": int(bool(context.get("lineups_available"))),
+        "api_home_formation": context.get("home_formation"),
+        "api_away_formation": context.get("away_formation"),
+        "api_home_xg": context.get("home_xg"),
+        "api_away_xg": context.get("away_xg"),
+        "api_context_note": context.get("note"),
+    }
+
+
+def _apply_api_football_adjustments(predictions: pd.DataFrame) -> pd.DataFrame:
+    adjusted = predictions.copy()
+    for index, row in adjusted.iterrows():
+        confidence = float(row.get("confidence_score", 0.0) or 0.0)
+        home_absences = int(row.get("api_home_injuries", 0) or 0) + int(row.get("api_home_suspensions", 0) or 0)
+        away_absences = int(row.get("api_away_injuries", 0) or 0) + int(row.get("api_away_suspensions", 0) or 0)
+        market = str(row.get("recommended_market", ""))
+        if home_absences >= 3 and "Gana local" in market:
+            confidence -= 0.06
+            adjusted.at[index, "action"] = "Informativo"
+            adjusted.at[index, "action_reason"] = "API-Football reporta varias bajas del local"
+        if away_absences >= 3 and "Gana visitante" in market:
+            confidence -= 0.06
+            adjusted.at[index, "action"] = "Informativo"
+            adjusted.at[index, "action_reason"] = "API-Football reporta varias bajas del visitante"
+
+        home_xg = row.get("api_home_xg")
+        away_xg = row.get("api_away_xg")
+        if not pd.isna(home_xg) and not pd.isna(away_xg):
+            xg_total = float(home_xg) + float(away_xg)
+            if "Over" in market and xg_total >= 2.8:
+                confidence += 0.03
+            elif "Over" in market and xg_total <= 2.0:
+                confidence -= 0.04
+            elif "Under" in market and xg_total <= 2.2:
+                confidence += 0.03
+            elif "Under" in market and xg_total >= 3.0:
+                confidence -= 0.04
+
+        adjusted.at[index, "confidence_score"] = max(0.0, min(1.0, confidence))
+    adjusted["confidence"] = adjusted["confidence_score"].apply(confidence_from_score)
+    return adjusted
 
 
 def enrich_predictions_with_reliability(
@@ -219,8 +337,48 @@ def _fallback_action(row: pd.Series) -> str:
     return "Evitar"
 
 
+def calibrate_predictions(
+    predictions: pd.DataFrame,
+    db_path: Path = DATABASE_PATH,
+    league_code: str | None = None,
+    max_test_matches: int | None = 500,
+) -> pd.DataFrame:
+    details, _summary = backtest_model(db_path=db_path, league_code=league_code, max_test_matches=max_test_matches)
+    calibration_table = build_calibration_table(details)
+    return apply_calibration(predictions, calibration_table)
+
+
+def _apply_calibration_to_action(predictions: pd.DataFrame) -> pd.DataFrame:
+    if "calibrated_pick_probability" not in predictions.columns:
+        return predictions
+    adjusted = predictions.copy()
+    for index, row in adjusted.iterrows():
+        calibrated = row.get("calibrated_pick_probability")
+        if pd.isna(calibrated):
+            continue
+        adjusted.at[index, "pick_probability"] = float(calibrated)
+        if float(calibrated) < 0.52:
+            adjusted.at[index, "action"] = "Evitar"
+            adjusted.at[index, "action_reason"] = "probabilidad calibrada por backtesting demasiado baja"
+        elif float(calibrated) >= 0.64 and row.get("action") == "Informativo":
+            adjusted.at[index, "action"] = "Recomendado"
+            adjusted.at[index, "action_reason"] = "probabilidad calibrada respalda el pick"
+    return adjusted
+
+
 def backtest_model(db_path: Path = DATABASE_PATH, league_code: str | None = None, max_test_matches: int | None = 300) -> tuple[pd.DataFrame, pd.DataFrame]:
     matches = load_matches(db_path=db_path)
     if league_code and "league_code" in matches.columns:
         matches = matches[matches["league_code"] == league_code]
     return run_backtest(matches, BacktestConfig(max_test_matches=max_test_matches))
+
+
+def backtest_diagnostics(
+    db_path: Path = DATABASE_PATH,
+    league_code: str | None = None,
+    max_test_matches: int | None = 500,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    details, summary = backtest_model(db_path=db_path, league_code=league_code, max_test_matches=max_test_matches)
+    calibration_table = build_calibration_table(details)
+    market_summary = summarise_markets(details)
+    return details, summary, calibration_table, market_summary

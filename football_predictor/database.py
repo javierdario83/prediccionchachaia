@@ -80,6 +80,18 @@ PREDICTION_OPTIONAL_COLUMNS: dict[str, str] = {
     "weather_wind_speed_kmh": "REAL",
     "weather_risk": "TEXT",
     "weather_note": "TEXT",
+    "api_football_fixture_id": "INTEGER",
+    "api_football_status": "TEXT",
+    "api_home_injuries": "INTEGER",
+    "api_away_injuries": "INTEGER",
+    "api_home_suspensions": "INTEGER",
+    "api_away_suspensions": "INTEGER",
+    "api_lineups_available": "INTEGER",
+    "api_home_formation": "TEXT",
+    "api_away_formation": "TEXT",
+    "api_home_xg": "REAL",
+    "api_away_xg": "REAL",
+    "api_context_note": "TEXT",
 }
 
 
