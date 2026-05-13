@@ -11,6 +11,8 @@ from .backtesting import BacktestConfig, run_backtest
 from .config import DEFAULT_SEASONS, LEAGUES, DATABASE_PATH, DownloadTarget
 from .database import load_matches, save_matches, save_predictions
 from .downloader import download_fixtures, download_many
+from .features import confidence_from_score, enrich_with_reliability_signals
+from .odds import add_market_probabilities
 from .poisson_model import PoissonFootballModel
 from .weather import get_match_weather
 
@@ -70,11 +72,14 @@ def predict_upcoming_matches(
             model = train_model_from_database(db_path=db_path, league_code=league_code)
         except ValueError:
             model = train_model_from_database(db_path=db_path, league_code=None)
-        predictions.append(model.predict_dataframe(league_fixtures))
+        predicted = model.predict_dataframe(league_fixtures)
+        predictions.append(_attach_fixture_odds(predicted, league_fixtures))
 
     result = pd.concat(predictions, ignore_index=True) if predictions else pd.DataFrame()
+    result = enrich_predictions_with_reliability(result, db_path=db_path)
     if include_weather and not result.empty:
         result = enrich_predictions_with_weather(result)
+    result = add_market_probabilities(result)
     result = rank_predictions(result)
     if save and not result.empty:
         save_predictions(result, db_path=db_path)
@@ -90,6 +95,7 @@ def predict_manual_match(
 ) -> pd.DataFrame:
     model = train_model_from_database(db_path=db_path, league_code=league_code)
     result = pd.DataFrame([model.predict_match(home_team, away_team, league_code=league_code).as_dict()])
+    result = enrich_predictions_with_reliability(result, db_path=db_path, league_code=league_code)
     if include_weather:
         result = enrich_predictions_with_weather(result)
     return rank_predictions(result)
@@ -103,8 +109,13 @@ def rank_predictions(predictions: pd.DataFrame) -> pd.DataFrame:
     ranked = predictions.copy()
     ranked["pick"] = ranked["recommended_market"]
     ranked["pick_probability"] = ranked["recommended_probability"]
+    if "action" not in ranked.columns:
+        ranked["action"] = ranked.apply(_fallback_action, axis=1)
+    ranked = _apply_value_gap_to_action(ranked)
     if "confidence_score" in ranked.columns:
-        ranked = ranked.sort_values(["confidence_score", "pick_probability"], ascending=False)
+        ranked["action_rank"] = ranked["action"].map({"Recomendado": 0, "Informativo": 1, "Evitar": 2}).fillna(3)
+        ranked = ranked.sort_values(["action_rank", "confidence_score", "pick_probability"], ascending=[True, False, False])
+        ranked = ranked.drop(columns=["action_rank"])
     return ranked.reset_index(drop=True)
 
 
@@ -143,8 +154,69 @@ def enrich_predictions_with_weather(predictions: pd.DataFrame) -> pd.DataFrame:
         else:
             penalties.append(0.0)
     enriched["confidence_score"] = (enriched["confidence_score"] - pd.Series(penalties)).clip(lower=0)
-    enriched["confidence"] = enriched["confidence_score"].apply(_confidence_from_score)
+    enriched["confidence"] = enriched["confidence_score"].apply(confidence_from_score)
+    if "action" in enriched.columns:
+        enriched.loc[enriched["weather_risk"] == "Alto", "action"] = "Informativo"
     return enriched
+
+
+def enrich_predictions_with_reliability(
+    predictions: pd.DataFrame,
+    db_path: Path = DATABASE_PATH,
+    league_code: str | None = None,
+) -> pd.DataFrame:
+    if predictions.empty:
+        return predictions
+    matches = load_matches(db_path=db_path)
+    if league_code and "league_code" in matches.columns:
+        matches = matches[matches["league_code"] == league_code]
+    return enrich_with_reliability_signals(predictions, matches)
+
+
+def _attach_fixture_odds(predictions: pd.DataFrame, fixtures: pd.DataFrame) -> pd.DataFrame:
+    if predictions.empty:
+        return predictions
+    odds_columns = ["B365H", "B365D", "B365A", "B365>2.5", "B365<2.5"]
+    available = [column for column in odds_columns if column in fixtures.columns]
+    if not available:
+        return predictions
+    odds = fixtures[available].reset_index(drop=True).rename(
+        columns={
+            "B365H": "b365_home",
+            "B365D": "b365_draw",
+            "B365A": "b365_away",
+            "B365>2.5": "b365_over25",
+            "B365<2.5": "b365_under25",
+        }
+    )
+    return pd.concat([predictions.reset_index(drop=True), odds], axis=1)
+
+
+def _apply_value_gap_to_action(predictions: pd.DataFrame) -> pd.DataFrame:
+    if "value_gap" not in predictions.columns:
+        return predictions
+    adjusted = predictions.copy()
+    for index, row in adjusted.iterrows():
+        value_gap = row.get("value_gap")
+        if pd.isna(value_gap):
+            continue
+        if float(value_gap) >= 0.05 and row.get("action") == "Informativo" and float(row.get("confidence_score", 0) or 0) >= 0.60:
+            adjusted.at[index, "action"] = "Recomendado"
+            adjusted.at[index, "action_reason"] = "valor positivo frente a cuotas y confianza suficiente"
+        elif float(value_gap) <= -0.08 and row.get("action") == "Recomendado":
+            adjusted.at[index, "action"] = "Informativo"
+            adjusted.at[index, "action_reason"] = "el mercado no respalda suficiente ventaja del modelo"
+    return adjusted
+
+
+def _fallback_action(row: pd.Series) -> str:
+    score = float(row.get("confidence_score", 0.0) or 0.0)
+    probability = float(row.get("recommended_probability", 0.0) or 0.0)
+    if score >= 0.64 and probability >= 0.64:
+        return "Recomendado"
+    if score >= 0.52 and probability >= 0.56:
+        return "Informativo"
+    return "Evitar"
 
 
 def backtest_model(db_path: Path = DATABASE_PATH, league_code: str | None = None, max_test_matches: int | None = 300) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -152,13 +224,3 @@ def backtest_model(db_path: Path = DATABASE_PATH, league_code: str | None = None
     if league_code and "league_code" in matches.columns:
         matches = matches[matches["league_code"] == league_code]
     return run_backtest(matches, BacktestConfig(max_test_matches=max_test_matches))
-
-
-def _confidence_from_score(score: float) -> str:
-    if score >= 0.72:
-        return "Alta"
-    if score >= 0.62:
-        return "Media-alta"
-    if score >= 0.52:
-        return "Media"
-    return "Baja"

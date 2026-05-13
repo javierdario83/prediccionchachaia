@@ -58,7 +58,7 @@ def clean_matches(df: pd.DataFrame) -> pd.DataFrame:
     cleaned["MatchDate"] = parse_match_date(cleaned["Date"])
     cleaned = cleaned.dropna(subset=["MatchDate"])
 
-    for column in ["FTHG", "FTAG", "HS", "AS", "HST", "AST", "HC", "AC", "HY", "AY", "HR", "AR"]:
+    for column in ["FTHG", "FTAG", "HS", "AS", "HST", "AST", "HC", "AC", "HY", "AY", "HR", "AR", "B365H", "B365D", "B365A", "B365>2.5", "B365<2.5"]:
         if column in cleaned.columns:
             cleaned[column] = pd.to_numeric(cleaned[column], errors="coerce")
 
@@ -89,11 +89,14 @@ def clean_fixtures(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df.copy()
 
-    columns = [column for column in ["Div", "Date", "Time", "HomeTeam", "AwayTeam", "B365H", "B365D", "B365A"] if column in df.columns]
+    columns = [column for column in ["Div", "Date", "Time", "HomeTeam", "AwayTeam", "B365H", "B365D", "B365A", "B365>2.5", "B365<2.5"] if column in df.columns]
     fixtures = df[columns].copy()
     fixtures = fixtures.dropna(subset=["Date", "HomeTeam", "AwayTeam"], how="any")
     fixtures["MatchDate"] = parse_match_date(fixtures["Date"])
     fixtures = fixtures.dropna(subset=["MatchDate"])
+    for column in ["B365H", "B365D", "B365A", "B365>2.5", "B365<2.5"]:
+        if column in fixtures.columns:
+            fixtures[column] = pd.to_numeric(fixtures[column], errors="coerce")
     if "Div" in fixtures.columns:
         fixtures["LeagueCode"] = fixtures["Div"]
     return fixtures.sort_values(["MatchDate", "HomeTeam", "AwayTeam"]).reset_index(drop=True)

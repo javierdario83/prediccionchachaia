@@ -12,6 +12,10 @@ MVP autónomo para generar predicciones de fútbol usando datos públicos de [fo
 - Marcador exacto más probable.
 - Pick o mercado recomendado.
 - Nivel y score de confianza.
+- Acción sugerida: Recomendado / Informativo / Evitar.
+- Forma reciente de últimos 5 partidos.
+- Elo por equipo y diferencia de fuerza.
+- Comparación opcional contra cuotas Bet365 cuando están disponibles.
 - Contexto climático opcional con Open-Meteo.
 - Backtesting histórico por liga y mercado.
 - Exportación de resultados a CSV desde la interfaz.
@@ -218,12 +222,18 @@ Streamlit / CSV exportable / backtesting
 - Pick recomendado por mayor probabilidad.
 - Ranking de picks por confianza.
 - Score de confianza más explicable.
+- Elo rating para medir fuerza relativa y dificultad del rival.
+- Forma reciente de últimos 5 partidos: puntos, goles, Over 2.5, BTTS y estadísticas disponibles.
+- Sistema de acción: **Recomendado**, **Informativo** o **Evitar** para no forzar picks débiles.
+- Comparación contra cuotas Bet365 cuando existen, calculando probabilidad implícita y ventaja vs mercado.
 - Penalización de confianza por clima adverso cuando Open-Meteo está activo.
+- Explicación automática del pick combinando probabilidad, Elo, forma reciente y motivo de acción.
 
 ## Limitaciones actuales
 
 - No predice goleadores porque Football-Data no entrega datos detallados por jugador.
 - No usa xG porque esta fuente no lo incluye de forma general.
 - No conoce lesiones ni alineaciones probables sin integrar otra API.
-- Las cuotas dependen de las columnas disponibles por temporada.
+- Las cuotas dependen de las columnas disponibles por temporada y no siempre existen para todos los partidos.
 - El modelo sigue siendo estadístico e interpretable; más adelante se puede agregar scikit-learn, XGBoost/LightGBM y calibración avanzada.
+- La acción **Recomendado** no garantiza acierto: solo indica que el pick superó umbrales internos de probabilidad, confianza, datos disponibles y/o valor frente al mercado.
