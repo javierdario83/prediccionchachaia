@@ -186,6 +186,42 @@ streamlit run app.py
 
 Luego, si el cliente exige `.exe`, conviene empaquetar un lanzador que ejecute internamente `python -m streamlit run app.py`, no convertir directamente la app sin ajustes.
 
+
+## Si GitHub no te deja descargar el proyecto
+
+Si el botón de descarga de GitHub falla por conflictos del PR o por la interfaz web, usa una de estas opciones:
+
+### Opción A: clonar por consola
+
+```cmd
+git clone URL_DEL_REPOSITORIO
+cd prediccionchachaia
+```
+
+Luego sigue la instalación normal con `python -m venv .venv`, `pip install -r requirements.txt` y `streamlit run app.py`.
+
+### Opción B: crear un ZIP desde la rama actual
+
+Si ya tienes el repo en tu máquina, ejecuta:
+
+```cmd
+python scripts/create_release_zip.py
+```
+
+El archivo quedará en:
+
+```text
+dist/prediccionchachaia.zip
+```
+
+### Opción C: verificar que el proyecto esté sano antes de entregarlo
+
+```cmd
+python scripts/verify_project.py
+```
+
+Este comando revisa compilación básica de Python y genera un ZIP de verificación sin necesitar pandas, streamlit ni internet.
+
 ## Uso desde Python
 
 ```python
