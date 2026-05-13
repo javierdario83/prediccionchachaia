@@ -19,6 +19,12 @@ MVP autónomo para generar predicciones de fútbol usando datos públicos de [fo
 - Contexto climático opcional con Open-Meteo.
 - Calibración automática por backtesting cuando hay histórico suficiente.
 - Backtesting histórico por liga y mercado.
+- Backtesting histórico por liga y mercado.
+- Over 1.5, Over 2.5 y Over 3.5 goles.
+- Ambos equipos anotan.
+- Goles esperados por equipo.
+- Marcador exacto más probable.
+- Nivel de confianza.
 - Exportación de resultados a CSV desde la interfaz.
 
 > Importante: el sistema entrega probabilidades, no garantías. El fútbol conserva incertidumbre por lesiones, expulsiones, clima, alineaciones y decisiones arbitrales.
@@ -276,7 +282,7 @@ Streamlit / CSV exportable / backtesting
 Para mejorar el modelo con datos que `football-data.co.uk` no trae completo, se revisaron estas opciones:
 
 - **Sportmonks**: mejor candidato premium para lesiones/suspendidos, alineaciones, expected lineups y xG.
-- **API-Football / API-Sports**: opción externa investigada para una fase futura de injuries, lineups, fixture/player stats y xG cuando el endpoint lo entregue.
+- **API-Football / API-Sports**: integración opcional disponible en la app para injuries, lineups, fixture/player stats y xG cuando el endpoint lo entregue.
 - **TheStatsAPI**: opción de pago/trial con xG, match stats, player stats y datos históricos.
 - **foot.io**: opción interesante para prototipo o investigación con lineups y shot-level xG; public reads con rate limit.
 - **football-data.org**: API JSON útil como complemento, pero no es la fuente ideal para xG profundo o lesiones.

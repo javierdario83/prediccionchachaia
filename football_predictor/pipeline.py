@@ -15,6 +15,7 @@ from .downloader import download_fixtures, download_many
 from .features import confidence_from_score, enrich_with_reliability_signals
 from .odds import add_market_probabilities
 from .poisson_model import PoissonFootballModel
+from .providers.api_football import APIFootballClient
 from .weather import get_match_weather
 
 
@@ -262,7 +263,7 @@ def calibrate_predictions(
     predictions: pd.DataFrame,
     db_path: Path = DATABASE_PATH,
     league_code: str | None = None,
-    max_test_matches: int | None = 150,
+    max_test_matches: int | None = 500,
 ) -> pd.DataFrame:
     details, _summary = backtest_model(db_path=db_path, league_code=league_code, max_test_matches=max_test_matches)
     calibration_table = build_calibration_table(details)
