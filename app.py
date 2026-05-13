@@ -215,8 +215,8 @@ with predictions_tab:
                         league_codes=selected_leagues,
                         limit=limit,
                         include_weather=include_weather,
-                        calibrate=calibrate_probabilities,
-                        api_football_key=api_football_key,
+                      
+                       
                     )
                     render_predictions(predictions)
                 except Exception as exc:
@@ -249,8 +249,8 @@ with predictions_tab:
                         away_team,
                         league_code=league_code,
                         include_weather=include_weather,
-                        calibrate=calibrate_probabilities,
-                        api_football_key=api_football_key,
+                    
+                    
                     )
                     render_predictions(predictions)
                 except Exception as exc:
