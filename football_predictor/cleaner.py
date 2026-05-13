@@ -3,8 +3,21 @@ from __future__ import annotations
 
 import pandas as pd
 
+COLUMN_ALIASES = {
+    "Home": "HomeTeam",
+    "Away": "AwayTeam",
+    "HG": "FTHG",
+    "AG": "FTAG",
+    "Res": "FTR",
+    "Result": "FTR",
+    "League": "Div",
+    "Country": "Country",
+    "Season": "Season",
+}
+
 CORE_COLUMNS = [
     "Div",
+    "Country",
     "Date",
     "Time",
     "HomeTeam",
@@ -46,11 +59,39 @@ def parse_match_date(series: pd.Series) -> pd.Series:
     return parsed
 
 
+def normalise_football_data_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Unifica nombres de columnas entre CSV clásicos y archivos /new.
+
+    Football-Data usa ``HomeTeam/AwayTeam/FTHG/FTAG/FTR`` en las ligas
+    europeas por temporada, pero los CSV acumulados de ``/new`` usan columnas
+    abreviadas como ``Home/Away/HG/AG/Res``. Esta normalización evita errores
+    de columnas faltantes al mezclar ambas fuentes.
+    """
+
+    normalised = df.copy()
+    rename_map = {
+        source: target
+        for source, target in COLUMN_ALIASES.items()
+        if source in normalised.columns and target not in normalised.columns
+    }
+    if rename_map:
+        normalised = normalised.rename(columns=rename_map)
+    return normalised
+
+
+def _has_required_columns(df: pd.DataFrame, required: list[str]) -> bool:
+    return all(column in df.columns for column in required)
+
+
 def clean_matches(df: pd.DataFrame) -> pd.DataFrame:
     """Normaliza partidos historicos finalizados y crea variables objetivo."""
 
     if df.empty:
         return df.copy()
+
+    df = normalise_football_data_columns(df)
+    if not _has_required_columns(df, ["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG"]):
+        return pd.DataFrame()
 
     available_columns = [column for column in CORE_COLUMNS if column in df.columns]
     cleaned = df[available_columns].copy()
@@ -78,6 +119,10 @@ def clean_matches(df: pd.DataFrame) -> pd.DataFrame:
 
     if "FTR" not in cleaned.columns:
         cleaned["FTR"] = cleaned.apply(_result_code, axis=1)
+    if "LeagueCode" not in cleaned.columns:
+        cleaned["LeagueCode"] = cleaned.get("Div", "")
+    if "Season" not in cleaned.columns:
+        cleaned["Season"] = ""
 
     cleaned = cleaned.sort_values(["MatchDate", "LeagueCode", "HomeTeam", "AwayTeam"]).reset_index(drop=True)
     return cleaned
@@ -88,6 +133,10 @@ def clean_fixtures(df: pd.DataFrame) -> pd.DataFrame:
 
     if df.empty:
         return df.copy()
+
+    df = normalise_football_data_columns(df)
+    if not _has_required_columns(df, ["Date", "HomeTeam", "AwayTeam"]):
+        return pd.DataFrame()
 
     columns = [column for column in ["Div", "Date", "Time", "HomeTeam", "AwayTeam", "B365H", "B365D", "B365A", "B365>2.5", "B365<2.5"] if column in df.columns]
     fixtures = df[columns].copy()
