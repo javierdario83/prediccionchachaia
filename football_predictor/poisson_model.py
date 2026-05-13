@@ -25,14 +25,25 @@ class MatchPrediction:
     home_win_prob: float
     draw_prob: float
     away_win_prob: float
+    double_chance_1x_prob: float
+    double_chance_x2_prob: float
+    double_chance_12_prob: float
     over15_prob: float
+    under15_prob: float
     over25_prob: float
+    under25_prob: float
     over35_prob: float
+    under35_prob: float
     btts_yes_prob: float
+    btts_no_prob: float
     expected_home_goals: float
     expected_away_goals: float
     predicted_score: str
+    recommended_market: str
+    recommended_probability: float
     confidence: str
+    confidence_score: float
+    confidence_note: str
 
     def as_dict(self) -> dict[str, object]:
         return self.__dict__.copy()
@@ -130,10 +141,29 @@ class PoissonFootballModel:
         over25 = _over_probability(matrix, 2.5)
         over35 = _over_probability(matrix, 3.5)
         btts = float(matrix[1:, 1:].sum())
+        probabilities = {
+            "Gana local": home_win,
+            "Empate": draw,
+            "Gana visitante": away_win,
+            "Doble oportunidad 1X": home_win + draw,
+            "Doble oportunidad X2": draw + away_win,
+            "Doble oportunidad 12": home_win + away_win,
+            "Over 1.5": over15,
+            "Under 1.5": 1 - over15,
+            "Over 2.5": over25,
+            "Under 2.5": 1 - over25,
+            "Over 3.5": over35,
+            "Under 3.5": 1 - over35,
+            "Ambos anotan: Sí": btts,
+            "Ambos anotan: No": 1 - btts,
+        }
+        recommended_market, recommended_probability = max(probabilities.items(), key=lambda item: item[1])
 
         score_index = np.unravel_index(np.argmax(matrix), matrix.shape)
         predicted_score = f"{score_index[0]}-{score_index[1]}"
-        confidence = _confidence_label(max(home_win, draw, away_win))
+        confidence_score, confidence, confidence_note = _confidence_details(
+            [home_win, draw, away_win], recommended_probability
+        )
 
         return MatchPrediction(
             league_code=league_code,
@@ -143,14 +173,25 @@ class PoissonFootballModel:
             home_win_prob=round(home_win, 4),
             draw_prob=round(draw, 4),
             away_win_prob=round(away_win, 4),
+            double_chance_1x_prob=round(home_win + draw, 4),
+            double_chance_x2_prob=round(draw + away_win, 4),
+            double_chance_12_prob=round(home_win + away_win, 4),
             over15_prob=round(over15, 4),
+            under15_prob=round(1 - over15, 4),
             over25_prob=round(over25, 4),
+            under25_prob=round(1 - over25, 4),
             over35_prob=round(over35, 4),
+            under35_prob=round(1 - over35, 4),
             btts_yes_prob=round(btts, 4),
+            btts_no_prob=round(1 - btts, 4),
             expected_home_goals=round(expected_home, 3),
             expected_away_goals=round(expected_away, 3),
             predicted_score=predicted_score,
+            recommended_market=recommended_market,
+            recommended_probability=round(recommended_probability, 4),
             confidence=confidence,
+            confidence_score=round(confidence_score, 4),
+            confidence_note=confidence_note,
         )
 
     def predict_dataframe(self, fixtures: pd.DataFrame) -> pd.DataFrame:
@@ -202,14 +243,18 @@ def _column(df: pd.DataFrame, primary: str, fallback: str) -> pd.Series:
     return df[primary] if primary in df.columns else df[fallback]
 
 
-def _confidence_label(probability: float) -> str:
-    if probability >= 0.62:
-        return "Alta"
-    if probability >= 0.50:
-        return "Media-alta"
-    if probability >= 0.42:
-        return "Media"
-    return "Baja"
+def _confidence_details(outcome_probabilities: list[float], recommended_probability: float) -> tuple[float, str, str]:
+    ordered = sorted(outcome_probabilities, reverse=True)
+    margin = ordered[0] - ordered[1] if len(ordered) > 1 else ordered[0]
+    # Combina claridad del 1X2 con fuerza del mercado recomendado.
+    score = (0.65 * recommended_probability) + (0.35 * min(1.0, margin * 2.5))
+    if score >= 0.72:
+        return score, "Alta", "Mercado recomendado fuerte y ventaja clara frente a alternativas."
+    if score >= 0.62:
+        return score, "Media-alta", "Buena probabilidad, aunque conviene revisar contexto del partido."
+    if score >= 0.52:
+        return score, "Media", "Pronostico util, pero el partido no esta completamente desequilibrado."
+    return score, "Baja", "Partido parejo o mercado sin ventaja suficiente; mejor usar cautela."
 
 
 def _format_date(value: object) -> str | None:
