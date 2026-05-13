@@ -31,3 +31,18 @@ def test_predict_manual_match_adds_automatic_calibration_columns(tmp_path):
     assert "calibrated_pick_probability" in predictions.columns
     assert predictions.loc[0, "calibrated_pick_probability"] == predictions.loc[0, "recommended_probability"]
     assert predictions.loc[0, "calibration_samples"] == 0
+
+
+def test_build_targets_uses_single_rolling_file_for_extra_leagues():
+    from football_predictor.pipeline import build_targets
+
+    targets = build_targets(seasons=["2425", "2526"], leagues=["MEX", "USA", "ARG", "E0"])
+    by_league = {league: [target for target in targets if target.league == league] for league in ["MEX", "USA", "ARG", "E0"]}
+
+    assert len(by_league["MEX"]) == 1
+    assert len(by_league["USA"]) == 1
+    assert len(by_league["ARG"]) == 1
+    assert len(by_league["E0"]) == 2
+    assert by_league["MEX"][0].url.endswith("/new/MEX.csv")
+    assert by_league["USA"][0].url.endswith("/new/USA.csv")
+    assert by_league["ARG"][0].url.endswith("/new/ARG.csv")

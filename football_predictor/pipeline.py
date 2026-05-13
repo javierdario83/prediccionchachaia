@@ -9,13 +9,12 @@ import pandas as pd
 from .cleaner import clean_fixtures, clean_matches
 from .backtesting import BacktestConfig, run_backtest
 from .calibration import apply_calibration, build_calibration_table, summarise_markets
-from .config import DEFAULT_SEASONS, LEAGUES, DATABASE_PATH, DownloadTarget
+from .config import DEFAULT_SEASONS, EXTRA_LEAGUES, EXTRA_LEAGUE_SEASON, LEAGUES, DATABASE_PATH, DownloadTarget
 from .database import load_matches, save_matches, save_predictions
 from .downloader import download_fixtures, download_many
 from .features import confidence_from_score, enrich_with_reliability_signals
 from .odds import add_market_probabilities
 from .poisson_model import PoissonFootballModel
-from .providers.api_football import APIFootballClient
 from .weather import get_match_weather
 
 
@@ -29,7 +28,13 @@ class UpdateSummary:
 def build_targets(seasons: list[str] | None = None, leagues: list[str] | None = None) -> list[DownloadTarget]:
     seasons = seasons or DEFAULT_SEASONS
     leagues = leagues or list(LEAGUES.keys())
-    return [DownloadTarget(season=season, league=league) for season in seasons for league in leagues]
+    targets: list[DownloadTarget] = []
+    for league in leagues:
+        if league in EXTRA_LEAGUES:
+            targets.append(DownloadTarget(season=EXTRA_LEAGUE_SEASON, league=league))
+        else:
+            targets.extend(DownloadTarget(season=season, league=league) for season in seasons)
+    return targets
 
 
 def update_historical_data(

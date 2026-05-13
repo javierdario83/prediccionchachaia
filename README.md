@@ -19,6 +19,7 @@ MVP autónomo para generar predicciones de fútbol usando datos públicos de [fo
 - Contexto climático opcional con Open-Meteo.
 - Calibración automática por backtesting cuando hay histórico suficiente.
 - Backtesting histórico por liga y mercado.
+- Resultados ordenados en tablas separadas: pick/explicación, goles, 1X2, cuotas y contexto.
 - Backtesting histórico por liga y mercado.
 - Over 1.5, Over 2.5 y Over 3.5 goles.
 - Ambos equipos anotan.
@@ -50,6 +51,16 @@ Los próximos partidos se descargan desde:
 https://www.football-data.co.uk/fixtures.csv
 ```
 
+Las ligas extra de Football-Data —Liga MX, MLS y Liga Profesional Argentina— se descargan desde archivos acumulados publicados en `new/{codigo}.csv`:
+
+```text
+https://www.football-data.co.uk/new/MEX.csv
+https://www.football-data.co.uk/new/USA.csv
+https://www.football-data.co.uk/new/ARG.csv
+```
+
+Como esos CSV ya contienen varias temporadas en un solo archivo, la app los descarga una sola vez aunque selecciones varias temporadas históricas.
+
 ## API gratuita de clima
 
 El sistema puede enriquecer las predicciones con clima usando **Open-Meteo**:
@@ -70,6 +81,9 @@ Open-Meteo no requiere API key para uso no comercial. El clima se usa como conte
 | I1 | Serie A |
 | D1 | Bundesliga |
 | F1 | Ligue 1 |
+| MEX | Liga MX |
+| USA | MLS |
+| ARG | Liga Profesional Argentina |
 
 ## Instalación desde cero en Windows
 
@@ -167,6 +181,7 @@ streamlit run app.py
    - **Próximos partidos automáticos**, o
    - **Partido manual**.
 6. Presiona **Generar predicciones** o **Predecir partido manual**.
+7. Revisa las tablas separadas: **Pick y explicación**, **Goles, Over/Under y ambos anotan**, **Resultado 1X2**, **Cuotas** y **Contexto de fiabilidad/clima**.
 7. Revisa probabilidades, pick recomendado, probabilidad calibrada, confianza y clima si está activo.
 8. Exporta CSV si hace falta.
 9. En la pestaña **Rendimiento histórico**, ejecuta backtesting para medir fiabilidad.
@@ -274,6 +289,7 @@ Streamlit / CSV exportable / backtesting
 - Sistema de acción: **Recomendado**, **Informativo** o **Evitar** para no forzar picks débiles.
 - Comparación contra cuotas Bet365 cuando existen, calculando probabilidad implícita y ventaja vs mercado.
 - Penalización de confianza por clima adverso cuando Open-Meteo está activo.
+- Tablas separadas en la interfaz para no mezclar picks, goles, cuotas, explicación y contexto en una sola vista.
 - Explicación automática del pick combinando probabilidad, Elo, forma reciente y motivo de acción.
 
 
@@ -282,6 +298,7 @@ Streamlit / CSV exportable / backtesting
 Para mejorar el modelo con datos que `football-data.co.uk` no trae completo, se revisaron estas opciones:
 
 - **Sportmonks**: mejor candidato premium para lesiones/suspendidos, alineaciones, expected lineups y xG.
+- **API-Football / API-Sports**: opción externa investigada para una fase futura de injuries, lineups, fixture/player stats y xG cuando el endpoint lo entregue.
 - **API-Football / API-Sports**: integración opcional disponible en la app para injuries, lineups, fixture/player stats y xG cuando el endpoint lo entregue.
 - **TheStatsAPI**: opción de pago/trial con xG, match stats, player stats y datos históricos.
 - **foot.io**: opción interesante para prototipo o investigación con lineups y shot-level xG; public reads con rate limit.
