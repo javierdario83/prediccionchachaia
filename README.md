@@ -18,6 +18,11 @@ MVP autónomo para generar predicciones de fútbol usando datos públicos de [fo
 - Comparación opcional contra cuotas Bet365 cuando están disponibles.
 - Contexto climático opcional con Open-Meteo.
 - Backtesting histórico por liga y mercado.
+- Over 1.5, Over 2.5 y Over 3.5 goles.
+- Ambos equipos anotan.
+- Goles esperados por equipo.
+- Marcador exacto más probable.
+- Nivel de confianza.
 - Exportación de resultados a CSV desde la interfaz.
 
 > Importante: el sistema entrega probabilidades, no garantías. El fútbol conserva incertidumbre por lesiones, expulsiones, clima, alineaciones y decisiones arbitrales.

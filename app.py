@@ -7,6 +7,7 @@ import streamlit as st
 from football_predictor.config import DEFAULT_SEASONS, LEAGUES
 from football_predictor.database import load_matches
 from football_predictor.pipeline import backtest_diagnostics, predict_manual_match, predict_upcoming_matches, update_historical_data
+from football_predictor.pipeline import backtest_model, predict_manual_match, predict_upcoming_matches, update_historical_data
 
 
 PERCENT_COLUMNS = [
