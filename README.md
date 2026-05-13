@@ -18,11 +18,17 @@ MVP autónomo para generar predicciones de fútbol usando datos públicos de [fo
 - Comparación opcional contra cuotas Bet365 cuando están disponibles.
 - Contexto climático opcional con Open-Meteo.
 - Backtesting histórico por liga y mercado.
+- Over 1.5, Over 2.5 y Over 3.5 goles.
+- Ambos equipos anotan.
+- Goles esperados por equipo.
+- Marcador exacto más probable.
+- Nivel de confianza.
 - Exportación de resultados a CSV desde la interfaz.
 
 > Importante: el sistema entrega probabilidades, no garantías. El fútbol conserva incertidumbre por lesiones, expulsiones, clima, alineaciones y decisiones arbitrales.
 
 ## Fuente de datos deportivos
+## Fuente de datos
 
 Los históricos se descargan con el patrón:
 
@@ -221,6 +227,26 @@ python scripts/verify_project.py
 ```
 
 Este comando revisa compilación básica de Python y genera un ZIP de verificación sin necesitar pandas, streamlit ni internet.
+## Instalación
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Uso con interfaz gráfica
+
+```bash
+streamlit run app.py
+```
+
+Flujo recomendado para el cliente:
+
+1. Seleccionar ligas y temporadas en la barra lateral.
+2. Presionar **Actualizar datos**.
+3. Presionar **Generar predicciones** para próximos partidos, o usar **Partido manual**.
+4. Revisar la tabla y exportar CSV si hace falta.
 
 ## Uso desde Python
 
