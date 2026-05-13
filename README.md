@@ -20,6 +20,12 @@ MVP autónomo para generar predicciones de fútbol usando datos públicos de [fo
 - Calibración automática por backtesting cuando hay histórico suficiente.
 - Backtesting histórico por liga y mercado.
 - Resultados ordenados en tablas separadas: pick/explicación, goles, 1X2, cuotas y contexto.
+- Backtesting histórico por liga y mercado.
+- Over 1.5, Over 2.5 y Over 3.5 goles.
+- Ambos equipos anotan.
+- Goles esperados por equipo.
+- Marcador exacto más probable.
+- Nivel de confianza.
 - Exportación de resultados a CSV desde la interfaz.
 
 > Importante: el sistema entrega probabilidades, no garantías. El fútbol conserva incertidumbre por lesiones, expulsiones, clima, alineaciones y decisiones arbitrales.
@@ -176,6 +182,7 @@ streamlit run app.py
    - **Partido manual**.
 6. Presiona **Generar predicciones** o **Predecir partido manual**.
 7. Revisa las tablas separadas: **Pick y explicación**, **Goles, Over/Under y ambos anotan**, **Resultado 1X2**, **Cuotas** y **Contexto de fiabilidad/clima**.
+7. Revisa probabilidades, pick recomendado, probabilidad calibrada, confianza y clima si está activo.
 8. Exporta CSV si hace falta.
 9. En la pestaña **Rendimiento histórico**, ejecuta backtesting para medir fiabilidad.
 
@@ -292,6 +299,7 @@ Para mejorar el modelo con datos que `football-data.co.uk` no trae completo, se 
 
 - **Sportmonks**: mejor candidato premium para lesiones/suspendidos, alineaciones, expected lineups y xG.
 - **API-Football / API-Sports**: opción externa investigada para una fase futura de injuries, lineups, fixture/player stats y xG cuando el endpoint lo entregue.
+- **API-Football / API-Sports**: integración opcional disponible en la app para injuries, lineups, fixture/player stats y xG cuando el endpoint lo entregue.
 - **TheStatsAPI**: opción de pago/trial con xG, match stats, player stats y datos históricos.
 - **foot.io**: opción interesante para prototipo o investigación con lineups y shot-level xG; public reads con rate limit.
 - **football-data.org**: API JSON útil como complemento, pero no es la fuente ideal para xG profundo o lesiones.
