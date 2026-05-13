@@ -241,6 +241,9 @@ def _render_prediction_section(title: str, predictions: pd.DataFrame, columns: l
 def render_predictions(predictions: pd.DataFrame) -> None:
     """Muestra resultados separados por tipo de información."""
 
+def render_predictions(predictions: pd.DataFrame) -> None:
+    """Muestra resultados en formato amigable para el cliente."""
+
     if predictions.empty:
         st.warning("No hay predicciones para mostrar.")
         return
@@ -260,6 +263,96 @@ def render_predictions(predictions: pd.DataFrame) -> None:
     st.download_button(
         "Exportar CSV completo",
         data=export.to_csv(index=False).encode("utf-8"),
+    display = predictions.copy()
+    for column in PERCENT_COLUMNS:
+        if column in display.columns:
+            display[column] = (display[column] * 100).round(1).astype(str) + "%"
+
+    display = display.rename(
+        columns={
+            "league_code": "Liga",
+            "match_date": "Fecha",
+            "home_team": "Local",
+            "away_team": "Visitante",
+            "home_win_prob": "Gana local",
+            "draw_prob": "Empate",
+            "away_win_prob": "Gana visita",
+            "double_chance_1x_prob": "1X",
+            "double_chance_x2_prob": "X2",
+            "double_chance_12_prob": "12",
+            "over15_prob": "Over 1.5",
+            "under15_prob": "Under 1.5",
+            "over25_prob": "Over 2.5",
+            "under25_prob": "Under 2.5",
+            "over35_prob": "Over 3.5",
+            "under35_prob": "Under 3.5",
+            "btts_yes_prob": "Ambos anotan Sí",
+            "btts_no_prob": "Ambos anotan No",
+            "expected_home_goals": "Goles esp. local",
+            "expected_away_goals": "Goles esp. visita",
+            "predicted_score": "Marcador probable",
+            "recommended_market": "Mercado recomendado",
+            "recommended_probability": "Prob. recomendada",
+            "pick": "Pick",
+            "pick_probability": "Prob. pick",
+            "confidence": "Confianza",
+            "confidence_score": "Score confianza",
+            "confidence_note": "Nota confianza",
+            "action": "Acción",
+            "action_reason": "Motivo acción",
+            "reliability_note": "Nota fiabilidad",
+            "explanation": "Explicación",
+            "home_elo": "Elo local",
+            "away_elo": "Elo visita",
+            "elo_diff": "Dif. Elo",
+            "home_form_points_5": "Forma local 5",
+            "away_form_points_5": "Forma visita 5",
+            "home_goals_for_5": "GF local 5",
+            "away_goals_for_5": "GF visita 5",
+            "home_goals_against_5": "GC local 5",
+            "away_goals_against_5": "GC visita 5",
+            "home_over25_rate_5": "Over2.5 local 5",
+            "away_over25_rate_5": "Over2.5 visita 5",
+            "home_btts_rate_5": "BTTS local 5",
+            "away_btts_rate_5": "BTTS visita 5",
+            "home_shots_on_target_for_5": "Tiros arco local 5",
+            "away_shots_on_target_for_5": "Tiros arco visita 5",
+            "home_data_quality": "Calidad datos local",
+            "away_data_quality": "Calidad datos visita",
+            "home_team_seen": "Local con histórico",
+            "away_team_seen": "Visita con histórico",
+            "team_coverage_note": "Cobertura equipos",
+            "one_x_two_margin": "Margen 1X2",
+            "match_balance_note": "Balance partido",
+            "data_freshness_days": "Días desde último histórico",
+            "data_freshness_note": "Frescura datos",
+            "b365_home": "Cuota local",
+            "b365_draw": "Cuota empate",
+            "b365_away": "Cuota visita",
+            "b365_over25": "Cuota Over2.5",
+            "b365_under25": "Cuota Under2.5",
+            "market_home_prob": "Mercado local",
+            "market_draw_prob": "Mercado empate",
+            "market_away_prob": "Mercado visita",
+            "market_over25_prob": "Mercado Over2.5",
+            "market_under25_prob": "Mercado Under2.5",
+            "value_gap": "Ventaja vs mercado",
+            "calibrated_pick_probability": "Prob. calibrada",
+            "calibration_bucket": "Bucket calibración",
+            "calibration_samples": "Muestras calibración",
+            "calibration_hit_rate": "Acierto bucket",
+            "weather_city": "Ciudad clima",
+            "weather_temperature_c": "Temp. °C",
+            "weather_precipitation_probability": "Prob. lluvia %",
+            "weather_wind_speed_kmh": "Viento km/h",
+            "weather_risk": "Riesgo clima",
+            "weather_note": "Nota clima",
+        }
+    )
+    st.dataframe(display, use_container_width=True, hide_index=True)
+    st.download_button(
+        "Exportar CSV",
+        data=display.to_csv(index=False).encode("utf-8"),
         file_name="predicciones_futbol.csv",
         mime="text/csv",
     )
@@ -334,6 +427,8 @@ with predictions_tab:
                         league_codes=selected_leagues,
                         limit=limit,
                         include_weather=include_weather,
+                      
+                       
                     )
                     render_predictions(predictions)
                 except Exception as exc:
@@ -366,6 +461,8 @@ with predictions_tab:
                         away_team,
                         league_code=league_code,
                         include_weather=include_weather,
+                    
+                    
                     )
                     render_predictions(predictions)
                 except Exception as exc:
