@@ -256,14 +256,15 @@ def render_predictions(predictions: pd.DataFrame) -> None:
         else:
             st.dataframe(context_table, use_container_width=True, hide_index=True)
 
-export_table = _format_prediction_table(predictions, list(predictions.columns))
+    export_table = _format_prediction_table(predictions, list(predictions.columns))
 
-st.download_button(
-    label="Exportar CSV completo",
-    data=export_table.to_csv(index=False).encode("utf-8"),
-    file_name="predicciones.csv",
-    mime="text/csv",
-)
+    st.download_button(
+        label="Exportar CSV completo",
+        data=export_table.to_csv(index=False).encode("utf-8"),
+        file_name="predicciones.csv",
+        mime="text/csv",
+    )
+
     display = predictions.copy()
     for column in PERCENT_COLUMNS:
         if column in display.columns:
