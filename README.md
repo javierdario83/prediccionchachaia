@@ -17,6 +17,8 @@ MVP autónomo para generar predicciones de fútbol usando datos públicos de [fo
 - Elo por equipo y diferencia de fuerza.
 - Comparación opcional contra cuotas Bet365 cuando están disponibles.
 - Contexto climático opcional con Open-Meteo.
+- Calibración automática por backtesting cuando hay histórico suficiente.
+- Backtesting histórico por liga y mercado.
 - Backtesting histórico por liga y mercado.
 - Over 1.5, Over 2.5 y Over 3.5 goles.
 - Ambos equipos anotan.
@@ -159,13 +161,13 @@ streamlit run app.py
 
 1. Selecciona ligas y temporadas en la barra lateral.
 2. Opcionalmente activa **Agregar clima Open-Meteo**.
-3. Opcionalmente activa **Usar API-Football** y pega tu API key en el campo seguro de la barra lateral. También puedes definir la variable de entorno `API_FOOTBALL_KEY`.
+3. La calibración por backtesting se aplica automáticamente cuando hay histórico suficiente; no tienes que activar nada.
 4. Presiona **Actualizar datos**.
 5. En la pestaña **Predicciones**, elige:
    - **Próximos partidos automáticos**, o
    - **Partido manual**.
 6. Presiona **Generar predicciones** o **Predecir partido manual**.
-7. Revisa probabilidades, pick recomendado, confianza, clima y contexto API-Football si está activo.
+7. Revisa probabilidades, pick recomendado, probabilidad calibrada, confianza y clima si está activo.
 8. Exporta CSV si hace falta.
 9. En la pestaña **Rendimiento histórico**, ejecuta backtesting para medir fiabilidad.
 
@@ -229,33 +231,6 @@ python scripts/verify_project.py
 Este comando revisa compilación básica de Python y genera un ZIP de verificación sin necesitar pandas, streamlit ni internet.
 
 
-## Uso opcional de API-Football
-
-La API key **no se guarda en el código ni en Git**. Puedes usarla de dos formas:
-
-1. En la interfaz, activa **Usar API-Football** y pega la key en el campo tipo contraseña.
-2. O define una variable de entorno antes de abrir la app:
-
-```cmd
-set API_FOOTBALL_KEY=TU_API_KEY
-streamlit run app.py
-```
-
-En Mac/Linux:
-
-```bash
-export API_FOOTBALL_KEY=TU_API_KEY
-streamlit run app.py
-```
-
-Con API-Football activo, el sistema intenta buscar el fixture por fecha/equipos y agregar:
-
-- lesionados del local/visitante,
-- suspendidos del local/visitante,
-- lineups/formaciones si están disponibles,
-- xG del fixture si el endpoint de estadísticas lo devuelve para esa liga/partido,
-- una nota contextual y ajuste de confianza/acción.
-
 ## Uso desde Python
 
 ```python
@@ -299,7 +274,6 @@ Streamlit / CSV exportable / backtesting
 - Sistema de acción: **Recomendado**, **Informativo** o **Evitar** para no forzar picks débiles.
 - Comparación contra cuotas Bet365 cuando existen, calculando probabilidad implícita y ventaja vs mercado.
 - Penalización de confianza por clima adverso cuando Open-Meteo está activo.
-- Enriquecimiento opcional con API-Football para lesiones/suspensiones, alineaciones/formaciones y xG si el endpoint lo devuelve.
 - Explicación automática del pick combinando probabilidad, Elo, forma reciente y motivo de acción.
 
 
@@ -319,7 +293,7 @@ Más detalle técnico y endpoints revisados: [`docs/external_apis.md`](docs/exte
 
 - No predice goleadores porque Football-Data no entrega datos detallados por jugador.
 - No usa xG porque esta fuente no lo incluye de forma general.
-- No conoce lesiones ni alineaciones probables sin integrar otra API.
+- No conoce lesiones ni alineaciones probables dentro de la interfaz actual; eso queda para una integración externa futura.
 - Las cuotas dependen de las columnas disponibles por temporada y no siempre existen para todos los partidos.
 - El modelo sigue siendo estadístico e interpretable; más adelante se puede agregar scikit-learn, XGBoost/LightGBM y calibración avanzada.
 - La acción **Recomendado** no garantiza acierto: solo indica que el pick superó umbrales internos de probabilidad, confianza, datos disponibles y/o valor frente al mercado.

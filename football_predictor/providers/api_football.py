@@ -1,7 +1,7 @@
 """Cliente opcional para API-Football/API-Sports.
 
-La API key NO se guarda en el repositorio. Debe llegar por variable de entorno
-``API_FOOTBALL_KEY`` o desde la interfaz Streamlit.
+La API key NO se guarda en el repositorio. Este adaptador queda disponible
+para una integracion futura y debe recibir la key explicitamente al crear el cliente.
 """
 from __future__ import annotations
 

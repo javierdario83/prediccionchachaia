@@ -23,3 +23,11 @@ def test_train_model_or_neutral_returns_predictable_model_when_league_has_no_dat
     assert prediction.home_team == "Equipo A"
     assert prediction.away_team == "Equipo B"
     assert prediction.recommended_probability > 0
+
+
+def test_predict_manual_match_adds_automatic_calibration_columns(tmp_path):
+    predictions = predict_manual_match("Arsenal", "Chelsea", db_path=tmp_path / "empty.sqlite")
+
+    assert "calibrated_pick_probability" in predictions.columns
+    assert predictions.loc[0, "calibrated_pick_probability"] == predictions.loc[0, "recommended_probability"]
+    assert predictions.loc[0, "calibration_samples"] == 0

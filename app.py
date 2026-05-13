@@ -7,7 +7,6 @@ import streamlit as st
 from football_predictor.config import DEFAULT_SEASONS, LEAGUES
 from football_predictor.database import load_matches
 from football_predictor.pipeline import backtest_diagnostics, predict_manual_match, predict_upcoming_matches, update_historical_data
-from football_predictor.pipeline import backtest_model, predict_manual_match, predict_upcoming_matches, update_historical_data
 
 
 PERCENT_COLUMNS = [
@@ -108,6 +107,13 @@ def render_predictions(predictions: pd.DataFrame) -> None:
             "away_shots_on_target_for_5": "Tiros arco visita 5",
             "home_data_quality": "Calidad datos local",
             "away_data_quality": "Calidad datos visita",
+            "home_team_seen": "Local con histórico",
+            "away_team_seen": "Visita con histórico",
+            "team_coverage_note": "Cobertura equipos",
+            "one_x_two_margin": "Margen 1X2",
+            "match_balance_note": "Balance partido",
+            "data_freshness_days": "Días desde último histórico",
+            "data_freshness_note": "Frescura datos",
             "b365_home": "Cuota local",
             "b365_draw": "Cuota empate",
             "b365_away": "Cuota visita",
@@ -123,18 +129,6 @@ def render_predictions(predictions: pd.DataFrame) -> None:
             "calibration_bucket": "Bucket calibración",
             "calibration_samples": "Muestras calibración",
             "calibration_hit_rate": "Acierto bucket",
-            "api_football_fixture_id": "Fixture API-Football",
-            "api_football_status": "Estado API-Football",
-            "api_home_injuries": "Lesiones local",
-            "api_away_injuries": "Lesiones visita",
-            "api_home_suspensions": "Susp. local",
-            "api_away_suspensions": "Susp. visita",
-            "api_lineups_available": "Lineups API",
-            "api_home_formation": "Formación local",
-            "api_away_formation": "Formación visita",
-            "api_home_xg": "xG local API",
-            "api_away_xg": "xG visita API",
-            "api_context_note": "Nota API-Football",
             "weather_city": "Ciudad clima",
             "weather_temperature_c": "Temp. °C",
             "weather_precipitation_probability": "Prob. lluvia %",
@@ -181,9 +175,7 @@ with st.sidebar:
     )
     selected_seasons = st.multiselect("Temporadas históricas", options=DEFAULT_SEASONS, default=DEFAULT_SEASONS[-3:])
     include_weather = st.checkbox("Agregar clima Open-Meteo", value=False)
-    calibrate_probabilities = st.checkbox("Calibrar con backtesting", value=False)
-    use_api_football = st.checkbox("Usar API-Football", value=False)
-    api_football_key = st.text_input("API-Football key", type="password") if use_api_football else None
+    st.caption("La calibración por backtesting se aplica automáticamente cuando hay histórico suficiente.")
     st.info("Football-Data publica archivos CSV. La app los descarga, limpia y guarda localmente para entrenar el modelo.")
 
 st.subheader("1. Actualizar base histórica")

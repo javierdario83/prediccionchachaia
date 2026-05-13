@@ -80,6 +80,57 @@ TEAM_CITY_OVERRIDES: dict[str, str] = {
     "Nantes": "Nantes",
     "Lens": "Lens",
 }
+CITY_COORDINATE_OVERRIDES: dict[str, tuple[float, float]] = {
+    "London": (51.5072, -0.1276),
+    "Manchester": (53.4808, -2.2426),
+    "Liverpool": (53.4084, -2.9916),
+    "Birmingham": (52.4862, -1.8904),
+    "Wolverhampton": (52.5862, -2.1288),
+    "Newcastle upon Tyne": (54.9783, -1.6178),
+    "Brighton": (50.8225, -0.1372),
+    "Bournemouth": (50.7192, -1.8808),
+    "Leeds": (53.8008, -1.5491),
+    "Burnley": (53.7893, -2.2405),
+    "Nottingham": (52.9548, -1.1581),
+    "Madrid": (40.4168, -3.7038),
+    "Barcelona": (41.3874, 2.1686),
+    "Seville": (37.3891, -5.9845),
+    "Valencia": (39.4699, -0.3763),
+    "Villarreal": (39.9384, -0.1009),
+    "San Sebastian": (43.3183, -1.9812),
+    "Bilbao": (43.2630, -2.9350),
+    "Vigo": (42.2406, -8.7207),
+    "Getafe": (40.3083, -3.7324),
+    "Pamplona": (42.8125, -1.6458),
+    "Palma": (39.5696, 2.6502),
+    "Girona": (41.9794, 2.8214),
+    "Milan": (45.4642, 9.1900),
+    "Turin": (45.0703, 7.6869),
+    "Rome": (41.9028, 12.4964),
+    "Naples": (40.8518, 14.2681),
+    "Bergamo": (45.6983, 9.6773),
+    "Florence": (43.7696, 11.2558),
+    "Bologna": (44.4949, 11.3426),
+    "Genoa": (44.4056, 8.9463),
+    "Munich": (48.1351, 11.5820),
+    "Dortmund": (51.5136, 7.4653),
+    "Leverkusen": (51.0459, 7.0192),
+    "Frankfurt am Main": (50.1109, 8.6821),
+    "Stuttgart": (48.7758, 9.1829),
+    "Wolfsburg": (52.4227, 10.7865),
+    "Freiburg im Breisgau": (47.9990, 7.8421),
+    "Mainz": (49.9929, 8.2473),
+    "Paris": (48.8566, 2.3522),
+    "Marseille": (43.2965, 5.3698),
+    "Lyon": (45.7640, 4.8357),
+    "Monaco": (43.7384, 7.4246),
+    "Lille": (50.6292, 3.0573),
+    "Rennes": (48.1173, -1.6778),
+    "Nice": (43.7102, 7.2620),
+    "Nantes": (47.2184, -1.5536),
+    "Lens": (50.4319, 2.8333),
+}
+
 
 
 @dataclass(frozen=True)
@@ -104,7 +155,7 @@ def get_match_weather(home_team: str, match_date: object | None = None) -> Weath
     """
 
     city = TEAM_CITY_OVERRIDES.get(home_team, home_team)
-    coordinates = geocode_city(city)
+    coordinates = resolve_city_coordinates(city)
     if coordinates is None:
         return None
 
@@ -144,6 +195,18 @@ def get_match_weather(home_team: str, match_date: object | None = None) -> Weath
         weather_risk=risk,
         note=note,
     )
+
+
+def resolve_city_coordinates(city: str) -> tuple[float, float] | None:
+    """Resuelve coordenadas usando cache local antes de llamar geocoding.
+
+    Esto hace mas robusta la opcion Open-Meteo: para ligas principales no
+    depende del endpoint de geocoding y solo consulta el forecast.
+    """
+
+    if city in CITY_COORDINATE_OVERRIDES:
+        return CITY_COORDINATE_OVERRIDES[city]
+    return geocode_city(city)
 
 
 @lru_cache(maxsize=256)
